@@ -1,2 +1,8 @@
-# general things to ignore
+#General files to ignore
 data/
+solvency2/__pycache__
+solvency2/.ipynb_checkpoints/
+.ipynb_checkpoints/
+.gitignore
+
+
