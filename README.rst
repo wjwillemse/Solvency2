@@ -17,6 +17,6 @@ To start using the library, first import ``solvency2``
 
 ::
 
-    from insurelib import solvency2
+    from insurlib import solvency2
 
     
