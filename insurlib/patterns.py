@@ -232,14 +232,25 @@ def patterns_sums_column(dataframe = None,
 					if pattern_data and len(co) >= support:
 						yield [pattern] + pattern_data
 
-def generate(dataframe  = None,
-			 pattern    = None,
-			 P_columns  = None, 
-			 Q_columns  = None,
-			 value      = None,
+def generate(dataframe   = None,
+			 P_dataframe = None,
+			 Q_dataframe = None,
+			 pattern     = None,
+			 P_columns   = None, 
+			 Q_columns   = None,
+			 value       = None,
 			 sum_elements = None,
 			 parameters = {}, 
 			 include_co_ex = False):
+
+	if (not P_dataframe is None) and (not Q_dataframe is None):
+		try:
+			dataframe = P_dataframe.join(Q_dataframe)
+		except:
+			print("Join of P_dataframe and Q_dataframe failed, overlapping columns?")
+			return []
+		P_columns = P_dataframe.columns
+		Q_columns = Q_dataframe.columns
 
 	# if a value is given -> columns pattern value
 	if not value is None:
