@@ -6,17 +6,28 @@ Installation
 
 Get insurlib by 
 
+::
+
     git clone https://github.com/wjwillemse/insurlib.git
 
-Made sure your **sys.path** is correct.
+To use make sure your **sys.path** is correct, or run
+
+::
+
+    pip install -e insurlib
+   
+from where you cloned insurlib.
 
 Initialization
 --------------
 
-To start using the library, first import ``solvency2``
+To start using the library, first import ``rfr`` or ``patterns``
 
 ::
 
-    from insurlib import solvency2
+    from insurlib import rfr, patterns
+    
+
+    
 
     
