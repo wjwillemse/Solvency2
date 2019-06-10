@@ -205,14 +205,14 @@ def patterns_sums_column(dataframe = None,
                     if pattern_data:
                         yield [pattern] + pattern_data
 
-def generate_patterns(dataframe  = None,
-                      pattern    = None,
-                      P_columns  = None, 
-                      Q_columns  = None,
-                      value      = None,
-                      sum_elements = None,
-                      confidence = 0.75, 
-                      include_co_ex = False):
+def generate(dataframe  = None,
+             pattern    = None,
+             P_columns  = None, 
+             Q_columns  = None,
+             value      = None,
+             sum_elements = None,
+             confidence = 0.75, 
+             include_co_ex = False):
 
     # if a value is given -> columns pattern value
     if not value is None:
