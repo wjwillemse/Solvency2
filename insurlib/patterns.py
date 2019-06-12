@@ -45,14 +45,6 @@ preprocess = {'>':   operator.and_,
 			  '-->': operator.or_,
 			  'sum': operator.and_}
 
-def prepare_dataframe(df):
-	# we only look at numerical columns
-	df = df[[df.columns[c] for c in range(len(df.columns)) 
-			 if (df.dtypes[c] == 'float64' or df.dtypes[c] == 'int64')]]    
-	# remove columns with only zeros
-	df = df.loc[:, (df != 0).any(axis=0)]
-	return df
-
 def derive_pattern_statistics(co):
 	# co_sum is the support of the pattern
 	co_sum = co.sum()
@@ -63,52 +55,55 @@ def derive_pattern_statistics(co):
 	#oddsratio = (1 + co_sum) / (1 + ex_sum)
 	return co_sum, ex_sum, conf #, oddsratio
 
-def derive_pattern_data(df, P_columns, Q_columns, co, confidence, include_co_ex, data_filter):
+def derive_pattern_data(df, 
+						P_columns, 
+						Q_columns, 
+						co, 
+						confidence, 
+						include_co,
+						include_ex, 
+						data_filter):
 	data = list()
 	# pattern statistics
 	co_sum, ex_sum, conf = derive_pattern_statistics(co)
 	# we only store the rules with confidence higher than conf
 	if conf >= confidence:
 		data = [P_columns, Q_columns, co_sum, ex_sum, conf]
-		if include_co_ex:
+		if include_co:
 			if data_filter is None:
-				data.extend([list(df.index[co]), list(df.index[~co])])
+				data.extend([list(df.index[co])])
 			else:
-				data.extend([list(df.index[data_filter][co]), list(df.index[data_filter][~co])])
+				data.extend([list(df.index[data_filter][co])])
+		if include_ex:
+			if data_filter is None:
+				data.extend([list(df.index[~co])])
+			else:
+				data.extend([list(df.index[data_filter][~co])])
+
 	return data
 
-# generate patterns of the form [c1] operator value where c1 in df.columns
-# operators:
-# '!=' with 0 -> patterns in reported columns
-# '=' with 0 -> patterns in not reported columns
-# '>' with 0 -> patterns in reported columns with strictly positive values
-# '<' with 0 -> patterns in reported columns with strictly negative values
+def get_parameters(parameters):
+
+	confidence = parameters.get("min_confidence", 0.75)
+	support    = parameters.get("min_support", 1)
+	include_co = parameters.get("include_co", False)
+	include_ex = parameters.get("include_ex", False)
+
+	return confidence, support, include_co, include_ex
+
+# generate patterns of the form [c1] operator value where c1 is in columns
 
 def patterns_column_value(dataframe = None, 
 						  pattern   = None,
-						  P_columns = None,
+						  columns   = None,
 						  value     = None,
-						  parameters= {}, 
-						  include_co_ex = False):
+						  parameters= {}):
 
-	if "min_confidence" in parameters.keys():
-		confidence = parameters["min_confidence"]
-	else:
-		confidence = 0.75
-	if "min_support" in parameters.keys():
-		support = parameters["min_support"]
-	else:
-		support = 1
-	dataframe = prepare_dataframe(dataframe)
+	confidence, support, include_co, include_ex = get_parameters(parameters)
 
 	data_array = dataframe.values.T
 	
-	if P_columns is None: 
-		P_columns = range(len(dataframe.columns))
-	else:
-		P_columns = [dataframe.columns.get_loc(i) for i in P_columns]
-	
-	for c in P_columns:
+	for c in columns:
 		# confirmations and exceptions of the pattern, a list of booleans
 		co = reduce(operators[pattern], [data_array[c, :], 0])
 		pattern_data = derive_pattern_data(dataframe,
@@ -116,7 +111,8 @@ def patterns_column_value(dataframe = None,
 										   value, 
 										   co, 
 										   confidence,
-										   include_co_ex, None)
+										   include_co, 
+										   include_ex, None)
 		if pattern_data and len(co) >= support:
 			yield [pattern] + pattern_data
 			
@@ -131,34 +127,14 @@ def patterns_column_column(dataframe  = None,
 						   pattern    = None,
 						   P_columns  = None, 
 						   Q_columns  = None, 
-						   parameters = {}, 
-						   include_co_ex = False):
+						   parameters = {}):
 	
-	if "min_confidence" in parameters.keys():
-		confidence = parameters["min_confidence"]
-	else:
-		confidence = 0.75
-	if "min_support" in parameters.keys():
-		support = parameters["min_support"]
-	else:
-		support = 1
+	confidence, support, include_co, include_ex = get_parameters(parameters)
 
 	preprocess_operator = preprocess[pattern]
 	
-	dataframe = prepare_dataframe(dataframe)
 	# set up boolean masks for nonzero items per column
 	nonzero = (dataframe.values != 0).T
-	
-	# if no columns are given, all columns are checked
-	if P_columns is None: 
-		P_columns = range(len(dataframe.columns))
-	else:
-		P_columns = [dataframe.columns.get_loc(i) for i in P_columns]
-	
-	if Q_columns is None: 
-		Q_columns = range(len(dataframe.columns))
-	else:
-		Q_columns = [dataframe.columns.get_loc(i) for i in Q_columns]
 	
 	for c0 in P_columns:
 		for c1 in Q_columns:
@@ -174,34 +150,27 @@ def patterns_column_column(dataframe  = None,
 										[dataframe.columns[c1]], 
 										co, 
 										confidence,
-										include_co_ex, data_filter)
+										include_co,
+										include_ex, data_filter)
 					if pattern_data and len(co) >= support:
 						yield [pattern] + pattern_data
 
-def patterns_sums_column(dataframe = None,
-						 pattern = None,
-						 parameters = {}, 
-						 sum_elements = 2, 
-						 include_co_ex = False):
+def patterns_sums_column(dataframe  = None,
+						 pattern    = None,
+						 parameters = {}):
 
-	if "min_confidence" in parameters.keys():
-		confidence = parameters["min_confidence"]
-	else:
-		confidence = 0.75
-	if "min_support" in parameters.keys():
-		support = parameters["min_support"]
-	else:
-		support = 1
+	confidence, support, include_co, include_ex = get_parameters(parameters)
+
+	sum_elements = parameters.get("sum_elements", 2)
 
 	preprocess_operator = preprocess[pattern]
 
-	df = prepare_dataframe(dataframe)
-	data_array = df.values.T
+	data_array = dataframe.values.T
 
 	# set up boolean masks for nonzero items per column
-	nonzero = (df.values != 0).T
+	nonzero = (dataframe.values != 0).T
 
-	n = len(df.columns)
+	n = len(dataframe.columns)
 	matrix = np.zeros(shape = (n, n), dtype = bool)
 	for c in itertools.combinations(range(n), 2):
 		v = (data_array[c[1], :] <= data_array[c[0], :] + 1).all()
@@ -217,18 +186,19 @@ def patterns_sums_column(dataframe = None,
 				subset = sum_parts + (sum_col,)
 
 				data_filter = reduce(preprocess_operator, [nonzero[c] for c in subset])
-				data_array = df.values[data_filter].T
+				data_array = dataframe.values[data_filter].T
 				
 				if data_array.size:
 					# determine sum of columns in subset
 					data_array[sum_col, :] = -data_array[sum_col, :]
 					co = (abs(reduce(operator.add, data_array[subset, :])) < 1)
-					pattern_data = derive_pattern_data(df, 
-										[df.columns[c] for c in sum_parts],
-										[df.columns[sum_col]],
+					pattern_data = derive_pattern_data(dataframe, 
+										[dataframe.columns[c] for c in sum_parts],
+										[dataframe.columns[sum_col]],
 										co, 
 										confidence,
-										include_co_ex, None)
+										include_co,
+										include_ex, None)
 					if pattern_data and len(co) >= support:
 						yield [pattern] + pattern_data
 
@@ -236,13 +206,13 @@ def generate(dataframe   = None,
 			 P_dataframe = None,
 			 Q_dataframe = None,
 			 pattern     = None,
+			 columns     = None,
 			 P_columns   = None, 
 			 Q_columns   = None,
 			 value       = None,
-			 sum_elements = None,
-			 parameters = {}, 
-			 include_co_ex = False):
+			 parameters  = {}):
 
+	# if P_dataframe and Q_dataframe are given then join the dataframes and select columns
 	if (not P_dataframe is None) and (not Q_dataframe is None):
 		try:
 			dataframe = P_dataframe.join(Q_dataframe)
@@ -252,25 +222,42 @@ def generate(dataframe   = None,
 		P_columns = P_dataframe.columns
 		Q_columns = Q_dataframe.columns
 
+	# select all columns with numerical values
+	numerical_columns = [dataframe.columns[c] for c in range(len(dataframe.columns)) 
+							if ((dataframe.dtypes[c] == 'float64') or (dataframe.dtypes[c] == 'int64')) and (dataframe.iloc[:, c] != 0).any()]
+	dataframe = dataframe[numerical_columns]
+
+	if not P_columns is None:
+		P_columns = [dataframe.columns.get_loc(c) for c in P_columns if c in numerical_columns]
+	else:
+		P_columns = range(len(dataframe.columns))
+
+	if not Q_columns is None:
+		Q_columns = [dataframe.columns.get_loc(c) for c in Q_columns if c in numerical_columns]
+	else:
+		Q_columns = range(len(dataframe.columns))
+
+	if not columns is None: 
+		columns = [dataframe.columns.get_loc(c) for c in columns if c in numerical_columns]
+	else:
+		columns = range(len(dataframe.columns))
+
 	# if a value is given -> columns pattern value
 	if not value is None:
 		return patterns_column_value(dataframe = dataframe,
 									 pattern = pattern,
-									 P_columns = P_columns,
+									 columns = columns,
 									 value = value,
-									 parameters = parameters,
-									 include_co_ex = include_co_ex)
+									 parameters = parameters)
 	# if the pattern is sum and sum_elements is given -> c1 + ... cn = c
-	elif pattern == 'sum' and not sum_elements is None:
+	elif pattern == 'sum':
 		return patterns_sums_column(dataframe = dataframe,
 									pattern = pattern,
-									parameters = parameters, 
-									sum_elements = sum_elements)
+									parameters = parameters) 
 	# everything else -> c1 pattern c2
 	else:
 		return patterns_column_column(dataframe = dataframe,
-									 pattern = pattern, 
-									 P_columns = P_columns,
-									 Q_columns = Q_columns,
-									 parameters = parameters,
-									 include_co_ex = include_co_ex)
+									  pattern = pattern, 
+									  P_columns = P_columns,
+									  Q_columns = Q_columns,
+									  parameters = parameters)
