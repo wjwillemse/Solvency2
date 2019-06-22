@@ -30,9 +30,11 @@ To start using the library, first import ``rfr`` or ``patterns``
 Author
 --------------
 Willem Jan Willemse
+
 - Github: @wjwillemse
 
 License
 --------------
 Copyright (c) 2019 Willem Jan Willemse
-This project is MIT licensed
+
+This project is MIT licensed.
