@@ -57,7 +57,8 @@ def derive_pattern_statistics(co):
 
 def derive_pattern_data(df, 
 						P_columns, 
-						Q_columns, 
+						Q_columns,
+						pattern, 
 						co, 
 						confidence, 
 						include_co,
@@ -68,7 +69,7 @@ def derive_pattern_data(df,
 	co_sum, ex_sum, conf = derive_pattern_statistics(co)
 	# we only store the rules with confidence higher than conf
 	if conf >= confidence:
-		data = [P_columns, Q_columns, co_sum, ex_sum, conf]
+		data = [[pattern, P_columns, Q_columns], co_sum, ex_sum, conf]
 		if include_co:
 			if data_filter is None:
 				data.extend([list(df.index[co])])
@@ -107,14 +108,15 @@ def patterns_column_value(dataframe = None,
 		# confirmations and exceptions of the pattern, a list of booleans
 		co = reduce(operators[pattern], [data_array[c, :], 0])
 		pattern_data = derive_pattern_data(dataframe,
-										   [dataframe.columns[c]],
-										   value, 
+										   dataframe.columns[c],
+										   value,
+										   pattern, 
 										   co, 
 										   confidence,
 										   include_co, 
 										   include_ex, None)
 		if pattern_data and len(co) >= support:
-			yield [pattern] + pattern_data
+			yield pattern_data
 			
 # generate patterns of the form {[c1] operator [c2]} where c1 and c2 in df.columns
 # operators:
@@ -146,14 +148,15 @@ def patterns_column_column(dataframe  = None,
 					# confirmations of the pattern, a list of booleans
 					co = reduce(operators[pattern], data_array[[c0, c1], :])
 					pattern_data = derive_pattern_data(dataframe,
-										[dataframe.columns[c0]], 
-										[dataframe.columns[c1]], 
+										dataframe.columns[c0], 
+										dataframe.columns[c1], 
+										pattern,
 										co, 
 										confidence,
 										include_co,
 										include_ex, data_filter)
 					if pattern_data and len(co) >= support:
-						yield [pattern] + pattern_data
+						yield pattern_data
 
 def patterns_sums_column(dataframe  = None,
 						 pattern    = None,
@@ -194,13 +197,14 @@ def patterns_sums_column(dataframe  = None,
 					co = (abs(reduce(operator.add, data_array[subset, :])) < 1)
 					pattern_data = derive_pattern_data(dataframe, 
 										[dataframe.columns[c] for c in sum_parts],
-										[dataframe.columns[sum_col]],
+										dataframe.columns[sum_col],
+										pattern,
 										co, 
 										confidence,
 										include_co,
 										include_ex, None)
 					if pattern_data and len(co) >= support:
-						yield [pattern] + pattern_data
+						yield pattern_data
 
 def generate(dataframe   = None,
 			 P_dataframe = None,
